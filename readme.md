@@ -47,13 +47,15 @@ import { IonicModule } from '@ionic/angular';
 export class ManageGroupPage implements OnInit {
   form!: FormGroup;
 
+  // Available groups
   allGroups = [
     { uuid: 'g1', name: 'Group A' },
     { uuid: 'g2', name: 'Group B' },
     { uuid: 'g3', name: 'Group C' },
   ];
 
-  contactGroupUUIDs = ['g1', 'g3']; // Pre-assigned groups
+  // Groups already assigned to the contact
+  contactGroupUUIDs = ['g1', 'g3'];
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
