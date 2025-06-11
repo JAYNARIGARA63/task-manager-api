@@ -1,10 +1,4 @@
-# 📄 Manage Group Page (Ionic + Angular)
 
-This page allows users to manage and update group assignments for a contact using **Reactive Forms** and **Checkboxes** in an **Ionic Angular** app.
-
----
-
-## 🧩 HTML Template (`manage-group.page.html`)
 
 ```html
 <ion-header>
