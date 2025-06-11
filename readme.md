@@ -1,3 +1,4 @@
+<!-- manage-group.page.html -->
 <ion-header>
   <ion-toolbar>
     <ion-title>Manage Group</ion-title>
@@ -18,6 +19,7 @@
 </ion-content>
 
 
+// manage-group.page.ts
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import {
@@ -32,14 +34,14 @@ import { IonicModule } from '@ionic/angular';
 
 @Component({
   selector: 'app-manage-group',
-  standalone: true, // ✅ Must be standalone
+  standalone: true,
   templateUrl: './manage-group.page.html',
   styleUrls: ['./manage-group.page.scss'],
   imports: [
     CommonModule,
-    IonicModule, // ✅ Add IonicModule for <ion-*> components
+    IonicModule,
     FormsModule,
-    ReactiveFormsModule, // If you're using reactive forms
+    ReactiveFormsModule,
   ],
 })
 export class ManageGroupPage implements OnInit {
@@ -51,7 +53,7 @@ export class ManageGroupPage implements OnInit {
     { uuid: 'g3', name: 'Group C' },
   ];
 
-  contactGroupUUIDs = ['g1', 'g3']; // groups already assigned to contact
+  contactGroupUUIDs = ['g1', 'g3']; // Pre-assigned groups
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
@@ -70,9 +72,11 @@ export class ManageGroupPage implements OnInit {
       formArray.push(new FormControl(isChecked));
     });
   }
+
   get groupControls(): FormControl[] {
     return (this.form.get('groups') as FormArray).controls as FormControl[];
   }
+
   onSubmit() {
     const selectedGroups = this.groupControls
       .map((ctrl, i) => (ctrl.value ? this.allGroups[i].uuid : null))
