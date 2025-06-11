@@ -1,105 +1,78 @@
-# 🔄 RefreshService for Ionic Angular with RxJS
-
-A reusable RxJS-based service for refreshing data between unrelated Angular/Ionic components — perfect for list pages, form submissions, and tab navigation.
-
----
-
-## ✅ Features
-
-- Refresh data after form submission or other events
-- Works across tabs, routes, and unrelated components
-- Avoids duplicate API calls with clean separation
-- Scales well for large apps (e.g., 100+ pages)
-
----
-
-## 📁 `refresh.service.ts`
-
-```ts
-import { Injectable } from '@angular/core';
-import { Subject, Observable } from 'rxjs';
-
-@Injectable({
-  providedIn: 'root',
-})
-export class RefreshService {
-  private subjects: { [key: string]: Subject<void> } = {};
-
-  getRefreshObservable(key: string): Observable<void> {
-    if (!this.subjects[key]) {
-      this.subjects[key] = new Subject<void>();
-    }
-    return this.subjects[key].asObservable();
-  }
-
-  triggerRefresh(key: string): void {
-    if (!this.subjects[key]) {
-      this.subjects[key] = new Subject<void>();
-    }
-    this.subjects[key].next();
-  }
-}
-
-
-// client.page.ts
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { RefreshService } from 'src/app/services/refresh.service';
-import { Subscription } from 'rxjs';
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray } from '@angular/forms';
 
 @Component({
-  selector: 'app-client',
-  templateUrl: './client.page.html',
+  selector: 'app-contact-group',
+  templateUrl: './contact-group.page.html',
+  styleUrls: ['./contact-group.page.scss'],
 })
-export class ClientPage implements OnInit, OnDestroy {
-  private refreshSub!: Subscription;
-  clients: any[] = [];
+export class ContactGroupPage implements OnInit {
+  form: FormGroup;
+  allGroups: string[] = [];        // fetched from API
+  contactGroups: string[] = [];   // fetched from API for that contact
+  contactId: string = '1';        // example ID
 
-  constructor(private refreshService: RefreshService) {}
+  constructor(private fb: FormBuilder) {
+    this.form = this.fb.group({
+      groups: this.fb.array([]),
+    });
+  }
 
   ngOnInit() {
-    this.refreshSub = this.refreshService.getRefreshObservable('client')
-      .subscribe(() => {
-        this.fetchClientList(); // Refresh triggered
-      });
+    this.fetchDataFromAPI();
   }
 
-  ionViewWillEnter() {
-    this.fetchClientList(); // Load on tab enter
+  fetchDataFromAPI() {
+    // Simulate API response
+    this.allGroups = ['Family', 'Friends', 'Work', 'Gym'];
+    this.contactGroups = ['Friends', 'Work'];
+
+    const controls = this.allGroups.map(group =>
+      this.fb.control(this.contactGroups.includes(group))
+    );
+    this.form.setControl('groups', this.fb.array(controls));
   }
 
-  fetchClientList() {
-    // Example: API call to fetch client list
-    // this.http.get('/api/clients').subscribe(res => this.clients = res);
-    console.log('Fetching client list...');
+  get groupsFormArray(): FormArray {
+    return this.form.get('groups') as FormArray;
   }
-
-  ngOnDestroy() {
-    this.refreshSub?.unsubscribe();
-  }
-}
-
-
-// add-client.page.ts
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
-import { RefreshService } from 'src/app/services/refresh.service';
-
-@Component({
-  selector: 'app-add-client',
-  templateUrl: './add-client.page.html',
-})
-export class AddClientPage {
-  constructor(
-    private router: Router,
-    private refreshService: RefreshService
-  ) {}
 
   onSubmit() {
-    // Example: After successful form submission
-    // this.http.post('/api/clients', formData).subscribe(() => { ... });
+    const selectedGroups = this.groupsFormArray.value
+      .map((checked: boolean, i: number) => checked ? this.allGroups[i] : null)
+      .filter(group => group !== null);
 
-    console.log('Client added! Navigating and triggering refresh...');
-    this.refreshService.triggerRefresh('client');
-    this.router.navigateByUrl('/tabs/client');
+    console.log('Updating contact:', this.contactId);
+    console.log('Selected groups:', selectedGroups);
+
+    // Call backend API here to update contact's groups
+    // this.contactService.updateGroups(this.contactId, selectedGroups).subscribe(...)
   }
 }
+
+
+
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Edit Contact Groups</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <ion-list>
+      <ion-item *ngFor="let group of allGroups; let i = index">
+        <ion-label>{{ group }}</ion-label>
+        <ion-checkbox
+          slot="end"
+          [formControlName]="i"
+          formArrayName="groups">
+        </ion-checkbox>
+      </ion-item>
+    </ion-list>
+
+    <ion-button expand="block" type="submit">
+      Update Groups
+    </ion-button>
+  </form>
+</ion-content>
