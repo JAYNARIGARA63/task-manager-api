@@ -1,4 +1,12 @@
-<!-- manage-group.page.html -->
+# 📄 Manage Group Page (Ionic + Angular)
+
+This page allows users to manage and update group assignments for a contact using **Reactive Forms** and **Checkboxes** in an **Ionic Angular** app.
+
+---
+
+## 🧩 HTML Template (`manage-group.page.html`)
+
+```html
 <ion-header>
   <ion-toolbar>
     <ion-title>Manage Group</ion-title>
@@ -19,7 +27,9 @@
 </ion-content>
 
 
-// manage-group.page.ts
+## 🧠 TypeScript Component (`manage-group.page.ts`)
+
+```ts
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import {
@@ -34,28 +44,26 @@ import { IonicModule } from '@ionic/angular';
 
 @Component({
   selector: 'app-manage-group',
-  standalone: true,
+  standalone: true, // ✅ Must be standalone
   templateUrl: './manage-group.page.html',
   styleUrls: ['./manage-group.page.scss'],
   imports: [
     CommonModule,
-    IonicModule,
+    IonicModule, // ✅ Add IonicModule for <ion-*> components
     FormsModule,
-    ReactiveFormsModule,
+    ReactiveFormsModule, // If you're using reactive forms
   ],
 })
 export class ManageGroupPage implements OnInit {
   form!: FormGroup;
 
-  // Available groups
   allGroups = [
     { uuid: 'g1', name: 'Group A' },
     { uuid: 'g2', name: 'Group B' },
     { uuid: 'g3', name: 'Group C' },
   ];
 
-  // Groups already assigned to the contact
-  contactGroupUUIDs = ['g1', 'g3'];
+  contactGroupUUIDs = ['g1', 'g3']; // groups already assigned to contact
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
@@ -87,3 +95,4 @@ export class ManageGroupPage implements OnInit {
     console.log('Selected groups:', selectedGroups);
   }
 }
+```
