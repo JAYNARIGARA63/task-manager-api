@@ -1,3 +1,34 @@
+# 🧾 Manage Contact Groups – Ionic Angular Example
+
+This example demonstrates how to build an **edit form** in an Ionic Angular app using **Reactive Forms**. It shows a list of checkboxes representing groups, pre-selects some based on API data, and updates the selected groups on form submission.
+
+---
+
+## ✅ Features
+
+- ✅ Reactive Form using `FormArray`
+- ✅ Load groups from API
+- ✅ Pre-select groups based on contact data
+- ✅ Update selected groups on form submit
+
+---
+
+## 📁 File Structure
+
+```
+src/
+  app/
+    contact-group/
+      contact-group.page.ts
+      contact-group.page.html
+      contact-group.page.scss
+```
+
+---
+
+## 📄 contact-group.page.ts
+
+```ts
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray } from '@angular/forms';
 
@@ -49,9 +80,13 @@ export class ContactGroupPage implements OnInit {
     // this.contactService.updateGroups(this.contactId, selectedGroups).subscribe(...)
   }
 }
+```
 
+---
 
+## 📄 contact-group.page.html
 
+```html
 <ion-header>
   <ion-toolbar>
     <ion-title>Edit Contact Groups</ion-title>
@@ -76,3 +111,37 @@ export class ContactGroupPage implements OnInit {
     </ion-button>
   </form>
 </ion-content>
+```
+
+---
+
+## 📦 How to Use
+
+1. Add `ReactiveFormsModule` in your `app.module.ts`:
+
+```ts
+import { ReactiveFormsModule } from '@angular/forms';
+
+@NgModule({
+  imports: [
+    ReactiveFormsModule
+  ]
+})
+```
+
+2. Replace mock data in `fetchDataFromAPI()` with actual API calls.
+
+---
+
+## ✅ Output Example
+
+If `Friends` and `Work` were selected already, and you select `Gym`, the console logs:
+
+```
+Updating contact: 1
+Selected groups: ['Friends', 'Work', 'Gym']
+```
+
+---
+
+Let me know if you want a version with API service or group IDs.
