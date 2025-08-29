@@ -1,201 +1,182 @@
-# 📄 `contacts.page.ts`
+# Task Time Tracking Module (Ionic Angular)
 
-```ts
-import { Component, OnInit, ViewChild } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { AlertController, IonInfiniteScroll } from '@ionic/angular';
-
-@Component({
-  selector: 'app-contacts',
-  templateUrl: './contacts.page.html',
-  styleUrls: ['./contacts.page.scss'],
-})
-export class ContactsPage implements OnInit {
-  @ViewChild(IonInfiniteScroll) infiniteScroll!: IonInfiniteScroll;
-
-  allContacts: any[] = [];         // All loaded contacts from API
-  displayedContacts: any[] = [];   // Filtered + searched contacts for display
-
-  searchText: string = '';
-  selectedFilter: string = 'open'; // Default filter
-
-  apiPage = 1;
-  apiPageSize = 20;
-
-  hasMoreData = true;
-  loading = false;
-
-  constructor(private http: HttpClient, private alertCtrl: AlertController) {}
-
-  ngOnInit() {
-    this.fetchContactsFromApi();
-  }
-
-  async presentFilter() {
-    const alert = await this.alertCtrl.create({
-      header: 'Filter Contacts',
-      inputs: [
-        { label: 'All', type: 'radio', value: 'all', checked: this.selectedFilter === 'all' },
-        { label: 'Unassigned', type: 'radio', value: 'unassigned', checked: this.selectedFilter === 'unassigned' },
-        { label: 'Open', type: 'radio', value: 'open', checked: this.selectedFilter === 'open' },
-        { label: 'Close', type: 'radio', value: 'close', checked: this.selectedFilter === 'close' },
-      ],
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Apply',
-          handler: (value: string) => {
-            this.selectedFilter = value;
-            this.applySearchAndFilter();
-          },
-        },
-      ],
-    });
-
-    await alert.present();
-  }
-
-  onSearchChange() {
-    this.applySearchAndFilter();
-  }
-
-  // Fetch next page from API
-  fetchContactsFromApi() {
-    if (this.loading || !this.hasMoreData) return;
-
-    this.loading = true;
-
-    const params = new HttpParams()
-      .set('page', this.apiPage.toString())
-      .set('pageSize', this.apiPageSize.toString());
-
-    this.http.get<any[]>('https://your-api.com/api/contacts', { params }).subscribe({
-      next: (data) => {
-        if (data.length < this.apiPageSize) {
-          this.hasMoreData = false;
-        } else {
-          this.apiPage++;
-        }
-
-        this.allContacts = [...this.allContacts, ...data];
-        this.applySearchAndFilter();
-        this.loading = false;
-      },
-      error: (err) => {
-        console.error('API error:', err);
-        this.loading = false;
-      },
-    });
-  }
-
-  // Local search + filter
-  applySearchAndFilter() {
-    const filtered = this.allContacts.filter(contact => {
-      const matchesSearch = contact.name.toLowerCase().includes(this.searchText.toLowerCase());
-      const matchesFilter =
-        this.selectedFilter === 'all' || contact.status === this.selectedFilter;
-      return matchesSearch && matchesFilter;
-    });
-
-    this.displayedContacts = filtered;
-  }
-
-  // Triggered on infinite scroll
-  loadMore(event: any) {
-    this.fetchContactsFromApi();
-    setTimeout(() => {
-      event.target.complete();
-      if (!this.hasMoreData) {
-        event.target.disabled = true;
-      }
-    }, 500);
-  }
-}
-```
+This module adds **time tracking** functionality with **start, pause, resume, end** buttons for tasks.  
+It ensures that only one task can run at a time, tracks local UI time, and calls backend APIs.
 
 ---
 
-# 📄 `contacts.page.html`
+## 📌 `time-tracking.service.ts`
+
+```ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TimeTrackingService {
+  private currentTaskId: number | null = null;
+  private timers: { [taskId: number]: { elapsed: number, intervalId?: any } } = {};
+
+  constructor(private http: HttpClient) {}
+
+  startTask(taskId: number) {
+    if (this.currentTaskId && this.currentTaskId !== taskId) {
+      this.pauseTask(this.currentTaskId);
+    }
+
+    if (!this.timers[taskId]) {
+      this.timers[taskId] = { elapsed: 0 };
+    }
+
+    this.currentTaskId = taskId;
+    this.timers[taskId].intervalId = setInterval(() => {
+      this.timers[taskId].elapsed++;
+    }, 1000);
+
+    return this.http.post(`/api/tasks/${taskId}/start`, {});
+  }
+
+  pauseTask(taskId: number) {
+    if (this.timers[taskId]?.intervalId) {
+      clearInterval(this.timers[taskId].intervalId);
+      this.timers[taskId].intervalId = undefined;
+      this.http.post(`/api/tasks/${taskId}/pause`, {}).subscribe();
+    }
+    if (this.currentTaskId === taskId) {
+      this.currentTaskId = null;
+    }
+  }
+
+  resumeTask(taskId: number) {
+    if (this.currentTaskId && this.currentTaskId !== taskId) {
+      this.pauseTask(this.currentTaskId);
+    }
+
+    this.currentTaskId = taskId;
+    this.timers[taskId].intervalId = setInterval(() => {
+      this.timers[taskId].elapsed++;
+    }, 1000);
+
+    return this.http.post(`/api/tasks/${taskId}/resume`, {});
+  }
+
+  endTask(taskId: number) {
+    if (this.timers[taskId]?.intervalId) {
+      clearInterval(this.timers[taskId].intervalId);
+    }
+    this.currentTaskId = null;
+    this.http.post(`/api/tasks/${taskId}/end`, {}).subscribe();
+  }
+
+  getElapsedTime(taskId: number): number {
+    return this.timers[taskId]?.elapsed || 0;
+  }
+
+  isTaskRunning(taskId: number): boolean {
+    return !!this.timers[taskId]?.intervalId;
+  }
+}
+
+# Task Component (Ionic Angular)
+
+This component shows a task list with **start, pause, resume, end** functionality and integrates with the `TimeTrackingService`.
+
+---
+
+## task.page.ts
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { TimeTrackingService } from '../services/time-tracking.service';
+
+@Component({
+  selector: 'app-task',
+  templateUrl: './task.page.html',
+  styleUrls: ['./task.page.scss'],
+})
+export class TaskPage implements OnInit {
+  tasks: any[] = [];
+
+  constructor(private timeTrackingService: TimeTrackingService) {}
+
+  ngOnInit() {
+    // Normally you call your API to get tasks
+    this.tasks = [
+      { id: 1, name: 'Task 1', status: 'pending', createdAt: new Date(), category: 'Work', trackedTime: 0 },
+      { id: 2, name: 'Task 2', status: 'pending', createdAt: new Date(), category: 'Personal', trackedTime: 0 }
+    ];
+
+    this.timeTrackingService.tasks = this.tasks;
+  }
+
+  startTask(taskId: number) {
+    this.timeTrackingService.startTask(taskId);
+  }
+
+  pauseTask(taskId: number) {
+    this.timeTrackingService.pauseTask(taskId);
+  }
+
+  resumeTask(taskId: number) {
+    this.timeTrackingService.resumeTask(taskId);
+  }
+
+  endTask(taskId: number) {
+    this.timeTrackingService.endTask(taskId);
+  }
+}
+
+
+# task.page.html
 
 ```html
 <ion-header>
   <ion-toolbar>
-    <ion-title>Contacts</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="presentFilter()">Filter</ion-button>
-    </ion-buttons>
+    <ion-title>Task List</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content>
-  <!-- Search Bar -->
-  <ion-searchbar
-    [(ngModel)]="searchText"
-    (ionInput)="onSearchChange()"
-    placeholder="Search contacts...">
-  </ion-searchbar>
-
-  <!-- Contact List -->
   <ion-list>
-    <ion-item *ngFor="let contact of displayedContacts">
-      {{ contact.name }} - {{ contact.status }}
+    <ion-item *ngFor="let task of tasks">
+      <ion-label>
+        <h2>{{ task.name }}</h2>
+        <p>Status: {{ task.status }}</p>
+        <p>Category: {{ task.category }}</p>
+        <p>Tracked Time: {{ task.trackedTime }}s</p>
+      </ion-label>
+
+      <div class="actions">
+        <ion-button *ngIf="task.status === 'pending'" (click)="startTask(task.id)" color="success">Start</ion-button>
+        <ion-button *ngIf="task.status === 'running'" (click)="pauseTask(task.id)" color="warning">Pause</ion-button>
+        <ion-button *ngIf="task.status === 'paused'" (click)="resumeTask(task.id)" color="primary">Resume</ion-button>
+        <ion-button *ngIf="task.status === 'running' || task.status === 'paused'" (click)="endTask(task.id)" color="danger">End</ion-button>
+      </div>
     </ion-item>
   </ion-list>
-
-  <!-- Infinite Scroll -->
-  <ion-infinite-scroll threshold="100px" (ionInfinite)="loadMore($event)">
-    <ion-infinite-scroll-content
-      loadingSpinner="bubbles"
-      loadingText="Loading more contacts...">
-    </ion-infinite-scroll-content>
-  </ion-infinite-scroll>
 </ion-content>
-```
 
----
 
-# 📄 `app.module.ts` or `contacts.module.ts`
 
-```ts
-import { HttpClientModule } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
+# task.page.scss
 
-@NgModule({
-  imports: [
-    HttpClientModule,
-    FormsModule,
-    // other modules...
-  ]
-})
-export class AppModule {}
-```
+```scss
+ion-item {
+  --padding-start: 16px;
+  --inner-padding-end: 16px;
+  align-items: flex-start;
+}
 
----
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: auto;
+}
 
-# ✅ Expected API Endpoint
-
-- Endpoint: `https://your-api.com/api/contacts`
-- Method: `GET`
-- Query Parameters: `page`, `pageSize`
-- Example:  
-  ```
-  https://your-api.com/api/contacts?page=1&pageSize=20
-  ```
-
-- Expected response:
-```json
-[
-  { "name": "John", "status": "open" },
-  { "name": "Alice", "status": "unassigned" }
-]
-```
-
----
-
-Let me know if you want this in a downloadable file or want to support a response structure like:
-
-```json
-{ "data": [...], "meta": { "totalPages": 5 } }
-``` 
-
-I'll modify it for that too.
+ion-button {
+  --border-radius: 8px;
+  font-size: 14px;
+  height: 32px;
+}
