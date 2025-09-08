@@ -1,3 +1,12 @@
+# Task Page (task.page.ts)
+
+This file contains the logic to pick a file using **Capacitor File Picker** and upload it to a **Laravel API**.
+
+---
+
+## 📂 task.page.ts
+
+```ts
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
