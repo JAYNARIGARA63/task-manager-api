@@ -1,202 +1,130 @@
-# Ionic Angular App with Side Menu + Tabs
-
-## src/app/services/projects.service.ts
-```ts
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class ProjectsService {
-  private projects$ = new BehaviorSubject<any[]>([]);
-  private selectedProject$ = new BehaviorSubject<any | null>(null);
-
-  constructor(private http: HttpClient) {}
-
-  loadProjects() {
-    this.http.get<any[]>('https://api.example.com/projects').subscribe(data => {
-      this.projects$.next(data);
-      if (data.length > 0) {
-        this.setSelectedProject(data[0]);
-      }
-    });
-  }
-
-  getProjects() {
-    return this.projects$.asObservable();
-  }
-
-  getSelectedProject() {
-    return this.selectedProject$.asObservable();
-  }
-
-  setSelectedProject(project: any) {
-    this.selectedProject$.next(project);
-  }
-}
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class ApiService {
-  private baseUrl = 'https://api.example.com';
-
-  constructor(private http: HttpClient) {}
-
-  getFeed(projectUuid: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/projects/${projectUuid}/feed`);
-  }
-
-  getInsights(projectUuid: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/projects/${projectUuid}/insights`);
-  }
-}
-
-
+```
 import { Component, OnInit } from '@angular/core';
-import { ProjectsService } from '../../services/projects.service';
 
 @Component({
-  selector: 'app-project-menu',
-  templateUrl: './project-menu.component.html',
-  styleUrls: ['./project-menu.component.scss'],
+  selector: 'app-trip-detail',
+  templateUrl: './trip-detail.page.html',
+  styleUrls: ['./trip-detail.page.scss'],
 })
-export class ProjectMenuComponent implements OnInit {
-  projects: any[] = [];
-  selectedProject: any;
+export class TripDetailPage implements OnInit {
 
-  constructor(private projectsService: ProjectsService) {}
+  trip = { 
+    // your API or static trip data
+    trip_details: []
+  };
 
   ngOnInit() {
-    this.projectsService.getProjects().subscribe(data => {
-      this.projects = data;
-    });
-    this.projectsService.getSelectedProject().subscribe(project => {
-      this.selectedProject = project;
-    });
+    this.loadTrip();
   }
 
-  selectProject(project: any) {
-    this.projectsService.setSelectedProject(project);
+  loadTrip() {
+    // Load from API or static JSON
+    this.trip.trip_details = JSON.parse(localStorage.getItem('tripData')) || this.getDummyData();
+
+    this.updateButtonStates();
+  }
+
+  getDummyData() {
+    return [
+      { id:1, location:'surat', is_skipped:false, in_time:null, out_time:null },
+      { id:2, location:'ahmedabad', is_skipped:false, in_time:null, out_time:null },
+      { id:3, location:'baroda', is_skipped:false, in_time:null, out_time:null },
+      { id:4, location:'gandhinagar', is_skipped:false, in_time:null, out_time:null }
+    ];
+  }
+
+  // ----------------------------
+  // MAIN BUTTON VISIBILITY LOGIC
+  // ----------------------------
+  updateButtonStates() {
+    const details = this.trip.trip_details;
+
+    details.forEach((loc, index) => {
+      loc.showCheckIn = false;
+      loc.showCheckOut = false;
+      loc.showSkip = false;
+
+      // If skipped → no buttons
+      if (loc.is_skipped === true) return;
+
+      // FIRST LOCATION
+      if (index === 0) {
+        if (!loc.out_time) {
+          loc.showCheckOut = true;
+        }
+        return;
+      }
+
+      // NOT FIRST LOCATION
+      const prev = details[index - 1];
+
+      const prevDone = (prev.out_time !== null) || prev.is_skipped;
+
+      // SHOW CHECK-IN ONLY WHEN PREVIOUS IS COMPLETE
+      if (!loc.in_time && prevDone) {
+        loc.showCheckIn = true;
+        loc.showSkip = true;  // Skip allowed before check-in
+      }
+
+      // AFTER CHECK-IN
+      if (loc.in_time && !loc.out_time) {
+        loc.showCheckOut = true;
+      }
+    });
+
+    localStorage.setItem('tripData', JSON.stringify(details));
+  }
+
+  // ----------------------------
+  // USER ACTIONS
+  // ----------------------------
+  doCheckIn(loc) {
+    loc.in_time = new Date().toISOString();
+    this.updateButtonStates();
+  }
+
+  doCheckOut(loc) {
+    loc.out_time = new Date().toISOString();
+    this.updateButtonStates();
+  }
+
+  doSkip(loc) {
+    loc.is_skipped = true;
+    this.updateButtonStates();
   }
 }
 
+
 <ion-list>
-  <ion-list-header>Projects</ion-list-header>
-  <ion-item
-    *ngFor="let project of projects"
-    [color]="project.uuid === selectedProject?.uuid ? 'primary' : ''"
-    (click)="selectProject(project)">
-    {{ project.name }}
+  <ion-item *ngFor="let loc of trip.trip_details; let i = index">
+
+    <ion-label>
+      <h2>{{ loc.location }}</h2>
+      <p>IN: {{ loc.in_time || '—' }}</p>
+      <p>OUT: {{ loc.out_time || '—' }}</p>
+      <p *ngIf="loc.is_skipped" style="color:red;">Skipped</p>
+    </ion-label>
+
+    <ion-buttons slot="end">
+
+      <!-- CHECK-IN -->
+      <ion-button color="primary" *ngIf="loc.showCheckIn" (click)="doCheckIn(loc)">
+        Check In
+      </ion-button>
+
+      <!-- CHECK-OUT -->
+      <ion-button color="secondary" *ngIf="loc.showCheckOut" (click)="doCheckOut(loc)">
+        Check Out
+      </ion-button>
+
+      <!-- SKIP -->
+      <ion-button color="danger" *ngIf="loc.showSkip" (click)="doSkip(loc)">
+        Skip
+      </ion-button>
+
+    </ion-buttons>
+
   </ion-item>
 </ion-list>
 
-import { Component, OnInit } from '@angular/core';
-import { ProjectsService } from '../../services/projects.service';
-import { ApiService } from '../../services/api.service';
-
-@Component({
-  selector: 'app-feed',
-  templateUrl: './feed.page.html',
-  styleUrls: ['./feed.page.scss'],
-})
-export class FeedPage implements OnInit {
-  feed: any[] = [];
-
-  constructor(
-    private projectsService: ProjectsService,
-    private api: ApiService
-  ) {}
-
-  ngOnInit() {
-    this.projectsService.getSelectedProject().subscribe(project => {
-      if (project) {
-        this.loadFeed(project.uuid);
-      }
-    });
-  }
-
-  loadFeed(projectUuid: string) {
-    this.api.getFeed(projectUuid).subscribe(data => {
-      this.feed = data;
-    });
-  }
-}
-
-
-import { Component, OnInit } from '@angular/core';
-import { ProjectsService } from '../../services/projects.service';
-import { ApiService } from '../../services/api.service';
-
-@Component({
-  selector: 'app-insights',
-  templateUrl: './insights.page.html',
-  styleUrls: ['./insights.page.scss'],
-})
-export class InsightsPage implements OnInit {
-  insights: any[] = [];
-
-  constructor(
-    private projectsService: ProjectsService,
-    private api: ApiService
-  ) {}
-
-  ngOnInit() {
-    this.projectsService.getSelectedProject().subscribe(project => {
-      if (project) {
-        this.loadInsights(project.uuid);
-      }
-    });
-  }
-
-  loadInsights(projectUuid: string) {
-    this.api.getInsights(projectUuid).subscribe(data => {
-      this.insights = data;
-    });
-  }
-}
-
-<ion-app>
-  <ion-split-pane contentId="main-content">
-    <ion-menu contentId="main-content" type="overlay">
-      <ion-header>
-        <ion-toolbar>
-          <ion-title>Menu</ion-title>
-        </ion-toolbar>
-      </ion-header>
-      <ion-content>
-        <app-project-menu></app-project-menu>
-      </ion-content>
-    </ion-menu>
-
-    <ion-router-outlet id="main-content"></ion-router-outlet>
-  </ion-split-pane>
-</ion-app>
-
-
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
-import { RouteReuseStrategy } from '@angular/router';
-import { HttpClientModule } from '@angular/common/http';
-
-import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
-
-import { AppComponent } from './app.component';
-import { AppRoutingModule } from './app-routing.module';
-import { ProjectMenuComponent } from './components/project-menu/project-menu.component';
-
-@NgModule({
-  declarations: [AppComponent, ProjectMenuComponent],
-  imports: [BrowserModule, IonicModule.forRoot(), AppRoutingModule, HttpClientModule],
-  providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
-  bootstrap: [AppComponent],
-})
-export class AppModule {}
+```
