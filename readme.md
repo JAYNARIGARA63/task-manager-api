@@ -37,44 +37,54 @@ export class TripDetailPage implements OnInit {
   // MAIN BUTTON VISIBILITY LOGIC
   // ----------------------------
   updateButtonStates() {
-    const details = this.trip.trip_details;
+  // Find last completed or skipped location
+  const lastDoneIndex = this.tripDetails.findIndex((loc, i) =>
+    loc.in_time !== null || loc.out_time !== null || loc.is_skipped
+  );
 
-    details.forEach((loc, index) => {
-      loc.showCheckIn = false;
-      loc.showCheckOut = false;
-      loc.showSkip = false;
+  // If none done yet → last done = first location automatically
+  const lastCompleted = lastDoneIndex === -1 ? 0 : lastDoneIndex;
 
-      // If skipped → no buttons
-      if (loc.is_skipped === true) return;
+  this.tripDetails = this.tripDetails.map((loc, index) => {
+    const isFirst = index === 0;
+    const isLastCompleted = index === lastCompleted;
+    const isNextAfterCompleted = index === lastCompleted + 1;
 
-      // FIRST LOCATION
-      if (index === 0) {
-        if (!loc.out_time) {
-          loc.showCheckOut = true;
-        }
-        return;
+    // Default hide all buttons
+    loc.showCheckIn = false;
+    loc.showCheckOut = false;
+    loc.showSkip = false;
+
+    // FIRST LOCATION RULE
+    if (isFirst) {
+      if (!loc.out_time) {
+        loc.showCheckOut = true; // Only check-out button
       }
+      return loc;
+    }
 
-      // NOT FIRST LOCATION
-      const prev = details[index - 1];
+    // SKIPPED LOCATION RULE
+    if (loc.is_skipped) {
+      return loc; // No buttons for skipped
+    }
 
-      const prevDone = (prev.out_time !== null) || prev.is_skipped;
+    // CURRENT ACTIVE LOCATION (in-progress)
+    if (isLastCompleted && loc.in_time && !loc.out_time) {
+      loc.showCheckOut = true;
+      return loc;
+    }
 
-      // SHOW CHECK-IN ONLY WHEN PREVIOUS IS COMPLETE
-      if (!loc.in_time && prevDone) {
-        loc.showCheckIn = true;
-        loc.showSkip = true;  // Skip allowed before check-in
-      }
+    // NEXT LOCATION SHOULD SHOW CHECK-IN + SKIP
+    if (isNextAfterCompleted && !loc.in_time && !loc.is_skipped) {
+      loc.showCheckIn = true;
+      loc.showSkip = true;
+      return loc;
+    }
 
-      // AFTER CHECK-IN
-      if (loc.in_time && !loc.out_time) {
-        loc.showCheckOut = true;
-      }
-    });
-
-    localStorage.setItem('tripData', JSON.stringify(details));
-  }
-
+    // FUTURE LOCATIONS → no buttons
+    return loc;
+  });
+}
   // ----------------------------
   // USER ACTIONS
   // ----------------------------
