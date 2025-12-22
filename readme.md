@@ -1,156 +1,153 @@
 ```
-import { Component, OnInit } from '@angular/core';
+/* =====================================
+   status-rules.ts
+   ===================================== */
+
+export const STATUS_FLOW: Record<string, string[]> = {
+  pending: ['pending', 'on hold', 'processing', 'canceled'],
+  'on hold': ['on hold', 'processing', 'canceled'],
+  processing: ['processing', 'completed', 'failed'],
+  completed: ['completed', 'refunded'],
+  delivered: ['delivered', 'refunded'],
+  canceled: ['canceled'],
+  failed: ['failed', 'refunded'],
+  refunded: ['refunded']
+};
+
+<!-- =====================================
+     order-list.page.html
+     ===================================== -->
+
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Orders</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+
+  <ion-list>
+    <ion-item-sliding *ngFor="let order of orders">
+
+      <!-- Order Item -->
+      <ion-item>
+        <ion-label>
+          <h2>Order #{{ order.orderNumber }}</h2>
+          <p>Amount: ₹{{ order.amount }}</p>
+          <p>
+            Status:
+            <strong>{{ order.status | titlecase }}</strong>
+          </p>
+        </ion-label>
+      </ion-item>
+
+      <!-- Sliding Options -->
+      <ion-item-options side="end">
+        <ion-item-option
+          color="primary"
+          (click)="openStatusActionSheet(order)"
+        >
+          Change Status
+        </ion-item-option>
+      </ion-item-options>
+
+    </ion-item-sliding>
+  </ion-list>
+
+</ion-content>
+
+/* =====================================
+   order-list.page.ts
+   ===================================== */
+
+import { Component } from '@angular/core';
+import { ActionSheetController } from '@ionic/angular';
+import { STATUS_FLOW } from './status-rules';
 
 @Component({
-  selector: 'app-trip-detail',
-  templateUrl: './trip-detail.page.html',
-  styleUrls: ['./trip-detail.page.scss'],
+  selector: 'app-order-list',
+  templateUrl: './order-list.page.html',
+  styleUrls: ['./order-list.page.scss']
 })
-export class TripDetailPage implements OnInit {
+export class OrderListPage {
 
-  tripData: any = {
-    trip_details: []
-  };
+  orders = [
+    {
+      id: 1,
+      orderNumber: 'ORD-101',
+      amount: 1200,
+      status: 'pending'
+    },
+    {
+      id: 2,
+      orderNumber: 'ORD-102',
+      amount: 3000,
+      status: 'completed'
+    }
+  ];
 
-  ngOnInit() {
-    this.loadTripData();
-  }
+  constructor(private actionSheetCtrl: ActionSheetController) {}
 
-  loadTripData() {
-    // Load from backend / localStorage (example using your JSON)
-    this.tripData = {
-      trip_details: [
-        {
-          id: 1,
-          location: 'surat',
-          approx_in_time: '10:30 AM',
-          approx_out_time: '11:00 AM',
-          in_time: null,
-          out_time: null,
-          is_skipped: false
-        },
-        {
-          id: 2,
-          location: 'ahmedabad',
-          approx_in_time: '11:30 AM',
-          approx_out_time: '12:00 PM',
-          in_time: null,
-          out_time: null,
-          is_skipped: false
-        },
-        {
-          id: 3,
-          location: 'baroda',
-          approx_in_time: '12:30 PM',
-          approx_out_time: '01:00 PM',
-          in_time: null,
-          out_time: null,
-          is_skipped: false
-        },
-        {
-          id: 4,
-          location: 'gandhinagar',
-          approx_in_time: '01:30 PM',
-          approx_out_time: '02:00 PM',
-          in_time: null,
-          out_time: null,
-          is_skipped: false
-        }
-      ]
-    };
+  async openStatusActionSheet(order: any) {
+    const allowedStatuses = STATUS_FLOW[order.status] || [];
 
-    this.updateButtonStates();
-  }
+    const buttons = allowedStatuses.map(status => {
+      const isCurrent = status === order.status;
 
-  // ----------------------------------------------------------
-  // MAIN LOGIC — updates UI button states
-  // ----------------------------------------------------------
-  updateButtonStates() {
-    const details = this.tripData.trip_details;
+      return {
+        text: isCurrent
+          ? `✓ ${status.toUpperCase()}`
+          : status.toUpperCase(),
 
-    details.forEach((item, index) => {
-      item.showCheckIn = false;
-      item.showCheckOut = false;
-      item.showSkip = false;
+        cssClass: isCurrent ? 'current-status' : '',
+        disabled: isCurrent,
 
-      if (item.is_skipped) {
-        return;
-      }
-
-      if (index === 0) {
-        item.showCheckOut = !item.out_time; 
-      } else {
-        const prev = details[index - 1];
-
-        const prevCompleted =
-          prev.out_time !== null || prev.is_skipped === true;
-
-        if (prevCompleted) {
-          if (!item.in_time) {
-            item.showCheckIn = true;
-            item.showSkip = true;
-          } else if (item.in_time && !item.out_time) {
-            item.showCheckOut = true;
+        handler: () => {
+          if (!isCurrent) {
+            this.changeStatus(order, status);
           }
         }
-      }
+      };
     });
+
+    // Only this button can close the action sheet
+    buttons.push({
+      text: 'Cancel',
+      role: 'cancel'
+    });
+
+    const actionSheet = await this.actionSheetCtrl.create({
+      header: 'Change Order Status',
+      buttons,
+      backdropDismiss: false   // IMPORTANT: disable background close
+    });
+
+    await actionSheet.present();
   }
 
-  // ----------------------------------------------------------
-  // CHECK-IN
-  // ----------------------------------------------------------
-  checkIn(item: any) {
-    item.in_time = new Date().toISOString();
-    this.updateButtonStates();
+  changeStatus(order: any, newStatus: string) {
+    order.status = newStatus;
+    this.updateOrderStatusAPI(order.id, newStatus);
   }
 
-  // ----------------------------------------------------------
-  // CHECK-OUT
-  // ----------------------------------------------------------
-  checkOut(item: any) {
-    item.out_time = new Date().toISOString();
-    this.updateButtonStates();
-  }
+  updateOrderStatusAPI(orderId: number, status: string) {
+    const payload = { status };
+    console.log('Update Order API:', orderId, payload);
 
-  // ----------------------------------------------------------
-  // SKIP
-  // ----------------------------------------------------------
-  skip(item: any) {
-    item.is_skipped = true;
-    this.updateButtonStates();
+    // Example API call
+    // this.orderService.updateOrderStatus(orderId, payload).subscribe()
   }
 }
-<ion-list>
-  <ion-item *ngFor="let loc of trip.trip_details; let i = index">
 
-    <ion-label>
-      <h2>{{ loc.location }}</h2>
-      <p>IN: {{ loc.in_time || '—' }}</p>
-      <p>OUT: {{ loc.out_time || '—' }}</p>
-      <p *ngIf="loc.is_skipped" style="color:red;">Skipped</p>
-    </ion-label>
 
-    <ion-buttons slot="end">
+/* =====================================
+   order-list.page.scss
+   ===================================== */
 
-      <!-- CHECK-IN -->
-      <ion-button color="primary" *ngIf="loc.showCheckIn" (click)="doCheckIn(loc)">
-        Check In
-      </ion-button>
-
-      <!-- CHECK-OUT -->
-      <ion-button color="secondary" *ngIf="loc.showCheckOut" (click)="doCheckOut(loc)">
-        Check Out
-      </ion-button>
-
-      <!-- SKIP -->
-      <ion-button color="danger" *ngIf="loc.showSkip" (click)="doSkip(loc)">
-        Skip
-      </ion-button>
-
-    </ion-buttons>
-
-  </ion-item>
-</ion-list>
+ion-action-sheet .current-status {
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  opacity: 1;
+}
 
 ```
